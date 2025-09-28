@@ -15,7 +15,19 @@ def fonlar(start: str = Query(None, description="Başlangıç tarihi YYYY-MM-DD"
         end_date = datetime.strptime(end, "%Y-%m-%d") if end else None
 
         data = tefas.fetch(start=start_date, end=end_date)
-        return data
+
+        # Sadece symbol, name, price alanlarını filtrele
+        filtered_data = [
+            {
+                "symbol": item.get("symbol"),
+                "name": item.get("name"),
+                "price": item.get("price")
+            }
+            for item in data
+        ]
+
+        return filtered_data
+
     except ValueError:
         return {"error": "Date format should be YYYY-MM-DD"}
     except Exception as e:
