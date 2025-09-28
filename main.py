@@ -1,35 +1,23 @@
-from fastapi import FastAPI, Query
-from tefas import Crawler
+import json
+import pandas as pd
 
-app = FastAPI()
-tefas = Crawler()
+# JSON'u dosyadan veya API yanıtından alın
+with open('response.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)  # str yerine dict
 
-@app.get("/fonlar")
-def fonlar(
-    start: str = Query(..., description="Başlangıç tarihi YYYY-MM-DD"),
-    end: str = Query(None, description="Bitiş tarihi YYYY-MM-DD")
-):
-    try:
-        end = end or start
-        # Crawler fetch, sadece ihtiyacımız olan 4 alan ve yatırım fonları
-        data = tefas.fetch(
-            start=start,
-            end=end,
-            columns=["date", "code", "title", "price"],
-            kind="YAT"
-        )
+# date ve title alanlarını DataFrame'e çevir
+try:
+    df = pd.DataFrame({
+        'date': data.get('date', {}),
+        'title': data.get('title', {})
+    })
+except Exception as e:
+    print("Hata oluştu:", e)
+    exit(1)
 
-        # Her alanı stringe çevir, nested object veya Decimal sorununu önle
-        result = []
-        for row in data:
-            result.append({
-                "date": str(row.get("date", "")),
-                "code": str(row.get("code", "")),
-                "title": str(row.get("title", "")),
-                "price": str(row.get("price", ""))
-            })
+# DataFrame'in indexleri bazen string olabiliyor, reset et
+df = df.reset_index(drop=True)
 
-        return result
-
-    except Exception as e:
-        return {"error": str(e)}
+# CSV olarak kaydet
+df.to_csv('fonds.csv', index=False, encoding='utf-8-sig')
+print("CSV başarıyla oluşturuldu: fonds.csv")
