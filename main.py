@@ -10,37 +10,31 @@ tefas = Crawler()
 def fonlar(start: str = Query(..., description="Başlangıç tarihi YYYY-MM-DD"),
            end: str = Query(None, description="Bitiş tarihi YYYY-MM-DD")):
     try:
-        # Tarih parametrelerini doğrula
-        try:
-            start_date = datetime.strptime(start, "%Y-%m-%d").date()
-            end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else start_date
-        except ValueError:
-            return {"error": "Date format should be YYYY-MM-DD"}
+        # Tarihleri kontrol et
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d") if end else start_date
 
-        # Crawler.fetch() ile veriyi çek
-        # columns parametresi bazı sürümlerde opsiyonel, CSV kolon isimleri ile uyumlu
-        data = tefas.fetch(start=start_date.isoformat(), end=end_date.isoformat())
+        # Veri çek
+        data = tefas.fetch(start=start_date, end=end_date)
 
-        # Eğer string gelirse JSON olarak parse et
-        if isinstance(data, str):
-            data = json.loads(data)
+        # Eğer DataFrame veya CSV string geliyorsa JSON’a çevir
+        if not isinstance(data, list):
+            # Örn: pandas DataFrame veya CSV string
+            try:
+                import pandas as pd
+                if isinstance(data, str):
+                    from io import StringIO
+                    df = pd.read_csv(StringIO(data))
+                else:
+                    df = data
+                # Sadece ihtiyacımız olan kolonları al
+                data = df[["Tarih","Fon Kodu","Fon Adı","Fiyat"]].to_dict(orient="records")
+            except Exception:
+                return {"error": "Could not parse data from crawler"}
 
-        # Dict olanları filtrele ve sadece CSV kolonlarını al
-        filtered_data = []
-        for item in data:
-            if isinstance(item, dict):
-                filtered_data.append({
-                    "date": item.get("Tarih") or item.get("date"),
-                    "code": item.get("Fon Kodu") or item.get("code"),
-                    "title": item.get("Fon Adı") or item.get("title"),
-                    "price": item.get("Fiyat") or item.get("price")
-                })
+        return data
 
-        # Eğer hiçbir veri yoksa bilgi ver
-        if not filtered_data:
-            return {"message": "No data found for the given date(s)."}
-
-        return filtered_data
-
+    except ValueError:
+        return {"error": "Date format should be YYYY-MM-DD"}
     except Exception as e:
         return {"error": str(e)}
