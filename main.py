@@ -9,30 +9,27 @@ def fonlar(
     start: str = Query(..., description="Başlangıç tarihi YYYY-MM-DD"),
     end: str = Query(None, description="Bitiş tarihi YYYY-MM-DD")
 ):
-    """
-    TEFAS fonlarını alır.
-    - start: Başlangıç tarihi (YYYY-MM-DD)
-    - end: Bitiş tarihi (YYYY-MM-DD), opsiyonel
-    Dönen JSON sadece:
-      - date: Tarih
-      - code: Fon Kodu
-      - title: Fon Adı
-      - price: Fiyat
-    Gereksiz fon türleri (commercial_paper vb.) dahil edilmez.
-    """
     try:
-        # Eğer end parametresi yoksa start ile aynı gün alınır
         end = end or start
-
-        # Sadece ihtiyacımız olan kolonlar ve yatırım fonları
+        # Crawler fetch, sadece ihtiyacımız olan 4 alan ve yatırım fonları
         data = tefas.fetch(
             start=start,
             end=end,
             columns=["date", "code", "title", "price"],
-            kind="YAT"  # yatırım fonlarını al, commercial_paper vb. gelmez
+            kind="YAT"
         )
 
-        return data
+        # Her alanı stringe çevir, nested object veya Decimal sorununu önle
+        result = []
+        for row in data:
+            result.append({
+                "date": str(row.get("date", "")),
+                "code": str(row.get("code", "")),
+                "title": str(row.get("title", "")),
+                "price": str(row.get("price", ""))
+            })
+
+        return result
 
     except Exception as e:
         return {"error": str(e)}
