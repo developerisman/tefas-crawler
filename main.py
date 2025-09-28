@@ -1,29 +1,32 @@
 from fastapi import FastAPI, Query
 from tefas import Crawler
 from datetime import datetime
+import json
 
 app = FastAPI()
 tefas = Crawler()
 
 @app.get("/fonlar")
-def fonlar(start: str = Query(None), end: str = Query(None)):
+def fonlar(start: str = Query(..., description="Başlangıç tarihi YYYY-MM-DD"),
+           end: str = Query(None, description="Bitiş tarihi YYYY-MM-DD")):
     try:
-        # Tarih parametrelerini datetime'a çevir
-        start_date = datetime.strptime(start, "%Y-%m-%d") if start else None
-        end_date = datetime.strptime(end, "%Y-%m-%d") if end else None
+        # Tarihleri datetime veya string olarak ayarla
+        start_date = start
+        end_date = end if end else start
 
-        data = tefas.fetch(start=start_date, end=end_date)
+        # Sadece istediğimiz kolonları al: date, code, title, price
+        data = tefas.fetch(start=start_date, end=end_date, columns=["date","code","title","price"])
 
-        # Eğer string döndüyse JSON olarak parse et
+        # Eğer string gelirse parse et
         if isinstance(data, str):
-            import json
             data = json.loads(data)
 
-        # Sadece dict olanları al
+        # Dict olanları filtrele ve sadece gerekli alanları döndür
         filtered_data = [
             {
-                "symbol": item.get("symbol"),
-                "name": item.get("name"),
+                "date": item.get("date"),
+                "code": item.get("code"),
+                "title": item.get("title"),
                 "price": item.get("price")
             }
             for item in data
@@ -32,6 +35,5 @@ def fonlar(start: str = Query(None), end: str = Query(None)):
 
         return filtered_data
 
-    except ValueError:
-        return {"error": "Date format should be YYYY-MM-DD"}
-    exce
+    except Exception as e:
+        return {"error": str(e)}
